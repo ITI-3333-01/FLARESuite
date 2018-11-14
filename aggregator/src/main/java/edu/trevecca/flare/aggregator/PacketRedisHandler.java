@@ -21,23 +21,9 @@ public class PacketRedisHandler implements RedisHandler {
     @Override public void handle(JsonObject json) {
         try {
             try (PrintWriter writer = new PrintWriter(out)) {
-                writer.println("# Packet data output file v1.0.0.");
-                writer.println("# File written on " + new Date() + ".");
-                writer.println("# Data Format: host | total | percent");
-                writer.println();
-                writer.println("Collection start: " + json.get("start").getAsLong());
-                writer.println("Collection window: " + json.get("window").getAsInt());
-                writer.println("data: ");
-                json.get("data").getAsJsonArray().forEach(d -> {
-                    JsonObject dataElement = d.getAsJsonObject();
-                    String host = dataElement.get("host").getAsString();
-                    int total = dataElement.get("total").getAsInt();
-                    double percent = dataElement.get("percent").getAsDouble();
-                    writer.println("  " + host + " | " + total + " | " + percent);
-                });
+                writer.println(json);
             }
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             Main.logger.severe("Failed to handle packet data!");
             e.printStackTrace();
             System.exit(1);
