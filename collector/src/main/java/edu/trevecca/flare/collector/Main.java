@@ -27,7 +27,8 @@ import picocli.CommandLine.Option;
 public class Main implements Callable<Void> {
 
     public static final Logger logger = Logging.getLogger("Main");
-    private final Map<Inet4Address, AtomicInteger> ipTraffic = new HashMap();
+    private final Map<Inet4Address, AtomicInteger> outboundTraffic = new HashMap();
+    private final Map<Inet4Address, AtomicInteger> inboundTraffic = new HashMap();
     private Instant start = Instant.now();
     @Option(
         names = {"-i", "--interface"}
@@ -108,18 +109,35 @@ public class Main implements Callable<Void> {
             if (Instant.now().minusSeconds((long) this.statsWindow).isAfter(this.start)) {
                 Instant finalStart = this.start;
                 (new Thread(() -> {
-                    StatsUtils.dumpStats(finalStart, new HashMap(this.ipTraffic), this.statsWindow, logger);
+                    StatsUtils.dumpStats(finalStart, new HashMap(this.outboundTraffic), new HashMap(this.inboundTraffic),
+                                         this.statsWindow, logger
+                                        );
                 })).run();
-                this.ipTraffic.clear();
+                this.outboundTraffic.clear();
                 this.start = Instant.now();
             }
 
             try {
                 Packet packet = this.handle.getNextPacketEx();
                 if (packet.contains(IpV4Packet.class)) {
-                    Inet4Address addr = ((IpV4Packet) packet.get(IpV4Packet.class)).getHeader().getDstAddr();
-                    this.ipTraffic.putIfAbsent(addr, new AtomicInteger());
-                    ((AtomicInteger) this.ipTraffic.get(addr)).addAndGet(packet.getHeader().length());
+                    Inet4Address out = ((IpV4Packet) packet.get(IpV4Packet.class)).getHeader().getDstAddr();
+                    Inet4Address in = ((IpV4Packet) packet.get(IpV4Packet.class)).getHeader().getSrcAddr();
+                    byte[] outAddr = out.getAddress();
+                    byte[] inAddr = in.getAddress();
+                    if (!(outAddr[0] == (byte) 172 && outAddr[1] == (byte) 16)) {
+                        this.outboundTraffic.putIfAbsent(out, new AtomicInteger());
+                        ((AtomicInteger) this.outboundTraffic.get(out)).addAndGet(packet.getHeader().length());
+                    }
+                    else if (!(inAddr[0] == (byte) 172 && inAddr[1] == (byte) 16)) {
+                        this.inboundTraffic.putIfAbsent(in, new AtomicInteger());
+                        ((AtomicInteger) this.inboundTraffic.get(in)).addAndGet(packet.getHeader().length());
+                    }
+                    else {
+                        logger.severe(
+                            "UH OH! Looks like we got a packet not matching to/from 172.16: src " + in.getHostAddress() + "  dest"
+                            + out.getHostAddress());
+                    }
+
                 }
             }
             catch (TimeoutException var7) {
@@ -144,7 +162,7 @@ public class Main implements Callable<Void> {
             shutdown.info("Packets received: " + stats.getNumPacketsReceived());
             shutdown.info("Packets dropped: " + stats.getNumPacketsDropped());
             shutdown.info("Packets dropped by interface: " + stats.getNumPacketsDroppedByIf());
-            StatsUtils.dumpStats(this.start, this.ipTraffic, this.statsWindow, shutdown);
+            StatsUtils.dumpStats(this.start, this.outboundTraffic, this.inboundTraffic, this.statsWindow, shutdown);
             this.handle.close();
         }
         catch (Exception var3) {

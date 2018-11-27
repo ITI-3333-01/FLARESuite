@@ -13,13 +13,16 @@ import java.util.stream.Collectors;
 public class PackerDumpRedisMessage implements RedisMessage {
 
     private final Instant start;
-    private final Map<Inet4Address, AtomicInteger> ipTraffic;
+    private final Map<Inet4Address, AtomicInteger> outboundTraffic;
+    private final Map<Inet4Address, AtomicInteger> inboundTraffic;
     private final int statsWindow;
 
     public PackerDumpRedisMessage(Instant start,
-                                  Map<Inet4Address, AtomicInteger> ipTraffic, int statsWindow) {
+                                  Map<Inet4Address, AtomicInteger> outboundTrafic,
+                                  Map<Inet4Address, AtomicInteger> inboundTrafic, int statsWindow) {
         this.start = start;
-        this.ipTraffic = ipTraffic;
+        this.outboundTraffic = outboundTrafic;
+        this.inboundTraffic = inboundTrafic;
         this.statsWindow = statsWindow;
     }
 
@@ -32,8 +35,16 @@ public class PackerDumpRedisMessage implements RedisMessage {
 
         object.addProperty("start", this.start.getEpochSecond());
         object.addProperty("window", this.statsWindow);
+
+        object.add("outbound", writeData(this.outboundTraffic));
+        object.add("inbound", writeData(this.inboundTraffic));
+
+        return object;
+    }
+
+    private JsonArray writeData(Map<Inet4Address, AtomicInteger> data) {
         JsonArray packetData = new JsonArray();
-        Map<Inet4Address, AtomicInteger> traffic = ipTraffic.entrySet()
+        Map<Inet4Address, AtomicInteger> traffic = data.entrySet()
                                                        .stream()
                                                        .sorted((a, b) -> Integer.compare(b.getValue().get(), a.getValue().get()))
                                                        .collect(
@@ -52,8 +63,6 @@ public class PackerDumpRedisMessage implements RedisMessage {
             packetData.add(packet);
         });
 
-        object.add("data", packetData);
-
-        return object;
+        return packetData;
     }
 }

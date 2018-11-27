@@ -4,7 +4,6 @@ import com.google.gson.JsonObject;
 import edu.trevecca.flare.core.redis.RedisHandler;
 import java.io.File;
 import java.io.PrintWriter;
-import java.util.Date;
 
 public class PacketRedisHandler implements RedisHandler {
 
@@ -23,7 +22,8 @@ public class PacketRedisHandler implements RedisHandler {
             try (PrintWriter writer = new PrintWriter(out)) {
                 writer.println(json);
             }
-        } catch (Exception e) {
+        }
+        catch (Exception e) {
             Main.logger.severe("Failed to handle packet data!");
             e.printStackTrace();
             System.exit(1);
