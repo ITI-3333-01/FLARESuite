@@ -124,17 +124,17 @@ public class Main implements Callable<Void> {
                     Inet4Address in = ((IpV4Packet) packet.get(IpV4Packet.class)).getHeader().getSrcAddr();
                     byte[] outAddr = out.getAddress();
                     byte[] inAddr = in.getAddress();
-                    if (!(outAddr[0] == (byte) 172 && outAddr[1] == (byte) 16)) {
+                    if (!(outAddr[0] == (byte) 172 && outAddr[1] == (byte) 15)) {
                         this.outboundTraffic.putIfAbsent(out, new AtomicInteger());
                         ((AtomicInteger) this.outboundTraffic.get(out)).addAndGet(packet.getHeader().length());
                     }
-                    else if (!(inAddr[0] == (byte) 172 && inAddr[1] == (byte) 16)) {
+                    else if (!(inAddr[0] == (byte) 172 && inAddr[1] == (byte) 15)) {
                         this.inboundTraffic.putIfAbsent(in, new AtomicInteger());
                         ((AtomicInteger) this.inboundTraffic.get(in)).addAndGet(packet.getHeader().length());
                     }
                     else {
                         logger.severe(
-                            "UH OH! Looks like we got a packet not matching to/from 172.16: src " + in.getHostAddress() + "  dest"
+                            "UH OH! Looks like we got a packet not matching to/from 172.15: src " + in.getHostAddress() + "  dest"
                             + out.getHostAddress());
                     }
 
