@@ -55,22 +55,22 @@ public class Redis {
 
     public void reset() {
         try {
-            ((RedisCommands) this.connection.get()).reset();
+            this.connection.get().reset();
         }
-        catch (CancellationException var2) {
-            ;
+        catch (CancellationException ex) {
+
         }
 
     }
 
     public void register(RedisHandler handler) {
         this.handlers.add(handler);
-        ((RedisPubSubCommands) this.pubSubCommands.get()).subscribe(handler.channels());
+        this.pubSubCommands.get().subscribe(handler.channels());
     }
 
     public void unRegister(RedisHandler handler) {
         this.handlers.remove(handler);
-        ((RedisPubSubCommands) this.pubSubCommands.get()).unsubscribe(handler.channels());
+        this.pubSubCommands.get().unsubscribe(handler.channels());
     }
 
     public Collection<RedisHandler> handlers() {
@@ -78,7 +78,7 @@ public class Redis {
     }
 
     public void publish(RedisMessage message) {
-        ((RedisCommands) this.connection.get()).publish(message.channel(), message.write().toString());
+        this.connection.get().publish(message.channel(), message.write().toString());
     }
 
     public void enable() {

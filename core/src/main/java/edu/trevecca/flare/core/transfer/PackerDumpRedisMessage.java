@@ -17,12 +17,19 @@ public class PackerDumpRedisMessage implements RedisMessage {
     private final Map<Inet4Address, AtomicInteger> inboundTraffic;
     private final int statsWindow;
 
+    /**
+     * Constructor.
+     * @param start           when the packet dump started
+     * @param outboundTraffic traffic going out of the network
+     * @param inboundTraffic  traffic coming in to the network
+     * @param statsWindow     time between dumps
+     */
     public PackerDumpRedisMessage(Instant start,
-                                  Map<Inet4Address, AtomicInteger> outboundTrafic,
-                                  Map<Inet4Address, AtomicInteger> inboundTrafic, int statsWindow) {
+                                  Map<Inet4Address, AtomicInteger> outboundTraffic,
+                                  Map<Inet4Address, AtomicInteger> inboundTraffic, int statsWindow) {
         this.start = start;
-        this.outboundTraffic = outboundTrafic;
-        this.inboundTraffic = inboundTrafic;
+        this.outboundTraffic = outboundTraffic;
+        this.inboundTraffic = inboundTraffic;
         this.statsWindow = statsWindow;
     }
 

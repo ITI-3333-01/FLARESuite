@@ -6,13 +6,14 @@ import java.util.Date;
 import java.util.logging.Formatter;
 import java.util.logging.LogRecord;
 
+/**
+ * Adds some useful info to logging output.
+ *
+ * @author Keenan Thompsan
+ */
 public class CustomFormatter extends Formatter {
 
-    private static final String format = "%1$tY-%1$tm-%1$td %1$tH:%1$tM:%1$tS.%1$tL [%4$s] [%3$s] %5$s %6$s%n";
     private final Date dat = new Date();
-
-    public CustomFormatter() {
-    }
 
     public String format(LogRecord record) {
         this.dat.setTime(record.getMillis());

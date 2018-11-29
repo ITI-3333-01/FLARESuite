@@ -5,6 +5,9 @@ import edu.trevecca.flare.core.redis.RedisHandler;
 import java.io.File;
 import java.io.PrintWriter;
 
+/**
+ * Listens for {@link edu.trevecca.flare.core.transfer.PackerDumpRedisMessage} and handles them.
+ */
 public class PacketRedisHandler implements RedisHandler {
 
     private final File out;

@@ -7,11 +7,9 @@ public interface RedisHandler {
     String[] channels();
 
     default boolean matches(String channel) {
-        String[] var2 = this.channels();
-        int var3 = var2.length;
+        String[] matchers = this.channels();
 
-        for (int var4 = 0; var4 < var3; ++var4) {
-            String check = var2[var4];
+        for (String check : matchers) {
             if (check.equals(channel)) {
                 return true;
             }
@@ -20,5 +18,5 @@ public interface RedisHandler {
         return false;
     }
 
-    void handle(JsonObject var1);
+    void handle(JsonObject object);
 }
