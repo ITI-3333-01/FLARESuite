@@ -10,6 +10,7 @@ import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Predicate;
 import java.util.logging.Logger;
 import org.pcap4j.core.BpfProgram.BpfCompileMode;
 import org.pcap4j.core.PcapHandle;
@@ -26,6 +27,7 @@ import picocli.CommandLine.Option;
 
 public class Main implements Callable<Void> {
 
+    private static final Predicate<byte[]> DISCARD_CHECK = (addr) -> (addr[0] == (byte) 172 && addr[1] == (byte) 16);
     public static final Logger logger = Logging.getLogger("Main");
     private final Map<Inet4Address, AtomicInteger> outboundTraffic = new HashMap();
     private final Map<Inet4Address, AtomicInteger> inboundTraffic = new HashMap();
@@ -124,17 +126,19 @@ public class Main implements Callable<Void> {
                     Inet4Address in = ((IpV4Packet) packet.get(IpV4Packet.class)).getHeader().getSrcAddr();
                     byte[] outAddr = out.getAddress();
                     byte[] inAddr = in.getAddress();
-                    if (!(outAddr[0] == (byte) 172 && outAddr[1] == (byte) 15)) {
+
+                    if (!DISCARD_CHECK.test(outAddr)) {
                         this.outboundTraffic.putIfAbsent(out, new AtomicInteger());
-                        ((AtomicInteger) this.outboundTraffic.get(out)).addAndGet(packet.getHeader().length());
+                        this.outboundTraffic.get(out).addAndGet(packet.getHeader().length());
                     }
-                    else if (!(inAddr[0] == (byte) 172 && inAddr[1] == (byte) 15)) {
+                    if (!DISCARD_CHECK.test(inAddr)) {
                         this.inboundTraffic.putIfAbsent(in, new AtomicInteger());
-                        ((AtomicInteger) this.inboundTraffic.get(in)).addAndGet(packet.getHeader().length());
+                        this.inboundTraffic.get(in).addAndGet(packet.getHeader().length());
                     }
-                    else {
+
+                    if (!DISCARD_CHECK.test(inAddr) && !DISCARD_CHECK.test(outAddr)) {
                         logger.severe(
-                            "UH OH! Looks like we got a packet not matching to/from 172.15: src " + in.getHostAddress() + "  dest"
+                            "UH OH! Looks like we got a packet not matching to/from 172.16: src " + in.getHostAddress() + "  dest"
                             + out.getHostAddress());
                     }
 
