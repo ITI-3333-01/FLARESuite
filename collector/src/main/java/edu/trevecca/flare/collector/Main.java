@@ -30,7 +30,7 @@ public class Main implements Callable<Void> {
     /**
      * Check to see if local data should be discarded.
      */
-    private static final Predicate<byte[]> DISCARD_CHECK = (addr) -> (addr[0] == (byte) 172 && addr[1] == (byte) 16);
+    private static final Predicate<byte[]> DISCARD_CHECK = (addr) -> (addr[0] == (byte) 172 && addr[1] == (byte) 11);
     /**
      * Class logger
      */
