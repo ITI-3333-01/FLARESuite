@@ -4,6 +4,7 @@ import com.google.gson.JsonObject;
 import edu.trevecca.flare.core.redis.RedisHandler;
 import java.io.File;
 import java.io.PrintWriter;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Listens for {@link edu.trevecca.flare.core.transfer.PackerDumpRedisMessage} and handles them.
@@ -11,8 +12,9 @@ import java.io.PrintWriter;
 public class PacketRedisHandler implements RedisHandler {
 
     private final File out;
+    private final AtomicInteger received = new AtomicInteger();
 
-    public PacketRedisHandler(File out) {
+    PacketRedisHandler(File out) {
         this.out = out;
     }
 
@@ -23,6 +25,7 @@ public class PacketRedisHandler implements RedisHandler {
     @Override public void handle(JsonObject json) {
         try {
             try (PrintWriter writer = new PrintWriter(out)) {
+                json.addProperty("files-recorded", this.received.incrementAndGet());
                 writer.println(json);
             }
         }
