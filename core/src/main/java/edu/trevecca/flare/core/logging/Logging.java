@@ -7,6 +7,7 @@ public class Logging {
 
     /**
      * Get a logger by name, and add in a {@link CustomFormatter} to make logging output more friendly.
+     *
      * @param name of the logger
      * @return a logger matching the requested name
      */

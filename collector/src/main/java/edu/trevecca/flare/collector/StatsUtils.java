@@ -17,7 +17,7 @@ public class StatsUtils {
      * @param statsWindow     time between dumps
      */
     public static void dumpStats(Instant start, Map<Inet4Address, AtomicInteger> outboundTraffic,
-                                 Map<Inet4Address, AtomicInteger> inboundTraffic, int statsWindow) {
-        Main.redis.publish(new PackerDumpRedisMessage(start, outboundTraffic, inboundTraffic, statsWindow));
+                                 Map<Inet4Address, AtomicInteger> inboundTraffic, int statsWindow, int badNets) {
+        Main.redis.publish(new PackerDumpRedisMessage(start, outboundTraffic, inboundTraffic, statsWindow, badNets));
     }
 }

@@ -30,7 +30,7 @@ public class Main implements Callable<Void> {
     /**
      * Check to see if local data should be discarded.
      */
-    private static final Predicate<byte[]> DISCARD_CHECK = (addr) -> (addr[0] == (byte) 172 && addr[1] == (byte) 11);
+    private static final Predicate<byte[]> DISCARD_CHECK = (addr) -> (addr[0] == (byte) 172 && addr[1] == (byte) 16);
     /**
      * Class logger
      */
@@ -121,7 +121,11 @@ public class Main implements Callable<Void> {
      * Redis instance to register {@link edu.trevecca.flare.core.redis.RedisListener}s and to send {@link
      * edu.trevecca.flare.core.redis.RedisMessage}s.
      */
-    public static Redis redis;
+    static Redis redis;
+    /**
+     * The number of packets received which do not match the inbound or outbound {@link #DISCARD_CHECK} in the current window.
+     */
+    private final AtomicInteger badNets = new AtomicInteger();
 
     public static void main(String[] args) throws Exception {
         // Parse args (see above)
@@ -168,9 +172,10 @@ public class Main implements Callable<Void> {
                 // Spawn a thread so stats dump doesn't slow down the main loop.
                 (new Thread(
                     () -> StatsUtils.dumpStats(finalStart, new HashMap(this.outboundTraffic), new HashMap(this.inboundTraffic),
-                                               this.statsWindow
+                                               this.statsWindow, this.badNets.get()
                                               ))).run();
                 // Clear local cache
+                badNets.set(0);
                 this.outboundTraffic.clear();
                 this.start = Instant.now();
             }
@@ -201,6 +206,7 @@ public class Main implements Callable<Void> {
                         logger.severe(
                             "UH OH! Looks like we got a packet not matching to/from 172.16: src " + in.getHostAddress() + "  dest"
                             + out.getHostAddress());
+                        badNets.incrementAndGet();
                     }
 
                 }
@@ -237,7 +243,7 @@ public class Main implements Callable<Void> {
             shutdown.info("Packets received: " + stats.getNumPacketsReceived());
             shutdown.info("Packets dropped: " + stats.getNumPacketsDropped());
             shutdown.info("Packets dropped by interface: " + stats.getNumPacketsDroppedByIf());
-            StatsUtils.dumpStats(this.start, this.outboundTraffic, this.inboundTraffic, this.statsWindow);
+            StatsUtils.dumpStats(this.start, this.outboundTraffic, this.inboundTraffic, this.statsWindow, this.badNets.get());
 
             // Close the handle
             this.handle.close();

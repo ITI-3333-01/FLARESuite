@@ -16,21 +16,25 @@ public class PackerDumpRedisMessage implements RedisMessage {
     private final Map<Inet4Address, AtomicInteger> outboundTraffic;
     private final Map<Inet4Address, AtomicInteger> inboundTraffic;
     private final int statsWindow;
+    private final int badNets;
 
     /**
      * Constructor.
+     *
      * @param start           when the packet dump started
      * @param outboundTraffic traffic going out of the network
      * @param inboundTraffic  traffic coming in to the network
      * @param statsWindow     time between dumps
+     * @param badNets         number of packets received from net-masks outside of the capture range
      */
     public PackerDumpRedisMessage(Instant start,
                                   Map<Inet4Address, AtomicInteger> outboundTraffic,
-                                  Map<Inet4Address, AtomicInteger> inboundTraffic, int statsWindow) {
+                                  Map<Inet4Address, AtomicInteger> inboundTraffic, int statsWindow, int badNets) {
         this.start = start;
         this.outboundTraffic = outboundTraffic;
         this.inboundTraffic = inboundTraffic;
         this.statsWindow = statsWindow;
+        this.badNets = badNets;
     }
 
     @Override public String channel() {
@@ -42,6 +46,7 @@ public class PackerDumpRedisMessage implements RedisMessage {
 
         object.addProperty("start", this.start.getEpochSecond());
         object.addProperty("window", this.statsWindow);
+        object.addProperty("bad-nets", this.badNets);
 
         object.add("outbound", writeData(this.outboundTraffic));
         object.add("inbound", writeData(this.inboundTraffic));
