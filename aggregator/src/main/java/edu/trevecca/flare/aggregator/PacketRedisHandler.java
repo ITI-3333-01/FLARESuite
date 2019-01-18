@@ -4,10 +4,7 @@ import com.google.gson.JsonObject;
 import edu.trevecca.flare.core.redis.RedisHandler;
 import java.io.File;
 import java.io.PrintWriter;
-import java.sql.Connection;
-import java.sql.Date;
-import java.sql.DriverManager;
-import java.sql.PreparedStatement;
+import java.sql.*;
 import java.time.Instant;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -36,7 +33,7 @@ public class PacketRedisHandler implements RedisHandler {
                 PreparedStatement insert = con.prepareStatement(DUMP_INSERT);
 
                 int size = json.get("outbound").getAsJsonArray().size() + json.get("inbound").getAsJsonArray().size();
-                insert.setDate(1, new Date(Instant.now().getEpochSecond()));
+                insert.setTimestamp(1, new Timestamp(json.get("start").getAsLong()));
                 insert.setInt(2, json.get("bad-nets").getAsInt());
                 insert.setInt(3, size);
 
