@@ -44,7 +44,7 @@ public class PackerDumpRedisMessage implements RedisMessage {
     @Override public JsonObject write() {
         JsonObject object = new JsonObject();
 
-        object.addProperty("start", this.start.getEpochSecond());
+        object.addProperty("start", this.start.toEpochMilli());
         object.addProperty("window", this.statsWindow);
         object.addProperty("bad-nets", this.badNets);
 
