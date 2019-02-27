@@ -1,12 +1,15 @@
 package edu.trevecca.flare.core.transfer;
 
+import com.google.common.collect.Multimap;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import edu.trevecca.flare.core.redis.RedisMessage;
 import java.net.Inet4Address;
 import java.time.Instant;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
@@ -15,6 +18,7 @@ public class PackerDumpRedisMessage implements RedisMessage {
     private final Instant start;
     private final Map<Inet4Address, AtomicInteger> outboundTraffic;
     private final Map<Inet4Address, AtomicInteger> inboundTraffic;
+    private final Multimap<String, Inet4Address> dnsResolutions;
     private final int statsWindow;
     private final int badNets;
 
@@ -29,10 +33,13 @@ public class PackerDumpRedisMessage implements RedisMessage {
      */
     public PackerDumpRedisMessage(Instant start,
                                   Map<Inet4Address, AtomicInteger> outboundTraffic,
-                                  Map<Inet4Address, AtomicInteger> inboundTraffic, int statsWindow, int badNets) {
+                                  Map<Inet4Address, AtomicInteger> inboundTraffic,
+                                  Multimap<String, Inet4Address> dnsResolutions,
+                                  int statsWindow, int badNets) {
         this.start = start;
         this.outboundTraffic = outboundTraffic;
         this.inboundTraffic = inboundTraffic;
+        this.dnsResolutions = dnsResolutions;
         this.statsWindow = statsWindow;
         this.badNets = badNets;
     }
@@ -51,7 +58,24 @@ public class PackerDumpRedisMessage implements RedisMessage {
         object.add("outbound", writeData(this.outboundTraffic));
         object.add("inbound", writeData(this.inboundTraffic));
 
+        object.add("dns", writeDNS());
+
         return object;
+    }
+
+    private JsonArray writeDNS() {
+        JsonArray dns = new JsonArray();
+
+        for (String domain : dnsResolutions.keys()) {
+            JsonObject resolution = new JsonObject();
+            resolution.addProperty("domain", domain);
+            JsonArray ips = new JsonArray();
+            new HashSet<>(dnsResolutions.get(domain)).forEach(i -> ips.add(i.toString()));
+            resolution.add("ips", ips);
+            dns.add(resolution);
+        }
+
+        return dns;
     }
 
     private JsonArray writeData(Map<Inet4Address, AtomicInteger> data) {
@@ -69,7 +93,7 @@ public class PackerDumpRedisMessage implements RedisMessage {
         double total = traffic.values().stream().mapToInt(AtomicInteger::get).sum();
         traffic.forEach((k, v) -> {
             JsonObject packet = new JsonObject();
-            packet.addProperty("host", k.getHostAddress());
+            packet.addProperty("host", k.toString());
             packet.addProperty("total", v.get());
             packet.addProperty("percent", v.get() / total);
             packetData.add(packet);

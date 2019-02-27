@@ -1,5 +1,6 @@
 package edu.trevecca.flare.collector;
 
+import com.google.common.collect.Multimap;
 import edu.trevecca.flare.core.transfer.PackerDumpRedisMessage;
 import java.net.Inet4Address;
 import java.time.Instant;
@@ -17,7 +18,9 @@ public class StatsUtils {
      * @param statsWindow     time between dumps
      */
     public static void dumpStats(Instant start, Map<Inet4Address, AtomicInteger> outboundTraffic,
-                                 Map<Inet4Address, AtomicInteger> inboundTraffic, int statsWindow, int badNets) {
-        Main.redis.publish(new PackerDumpRedisMessage(start, outboundTraffic, inboundTraffic, statsWindow, badNets));
+                                 Map<Inet4Address, AtomicInteger> inboundTraffic, Multimap<String, Inet4Address> dnsResolutions,
+                                 int statsWindow, int badNets) {
+        Main.redis
+            .publish(new PackerDumpRedisMessage(start, outboundTraffic, inboundTraffic, dnsResolutions, statsWindow, badNets));
     }
 }

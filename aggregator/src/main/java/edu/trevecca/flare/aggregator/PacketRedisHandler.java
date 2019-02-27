@@ -1,14 +1,20 @@
 package edu.trevecca.flare.aggregator;
 
+import com.google.common.collect.HashMultimap;
+import com.google.common.collect.Multimap;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import edu.trevecca.flare.core.redis.RedisHandler;
 import java.io.File;
+import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.Timestamp;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.Map.Entry;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -17,8 +23,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class PacketRedisHandler implements RedisHandler {
 
     private final String DUMP_INSERT = "INSERT into dumps (time, error, total) VALUES (?, ?, ?)";
-    private final String INFO_INSERT = "INSERT into dump_info (ip_address, direction, ip_count, dns, time, ratio) VALUES (?, ?, ?, ?, ?, ?)";
-
+    private final String DNS_INSERT = "INSERT into dns_dump (domain, ip_address, timestamp) VALUES (?, ?, ?)";
+    private final String INFO_INSERT =
+        "INSERT into dump_info (ip_address, direction, ip_count, dns, time, ratio) VALUES (?, ?, ?, ?, ?, ?)";
     private final File out;
     private final AtomicInteger received = new AtomicInteger();
 
@@ -33,9 +40,10 @@ public class PacketRedisHandler implements RedisHandler {
     @Override public void handle(JsonObject json) {
         try {
             try (Connection con = DriverManager.getConnection("jdbc:mysql://localhost/flare?" +
-                    "user=root&password=BLAZE")) {
+                                                              "user=root&password=BLAZE")) {
                 PreparedStatement dumpInsert = con.prepareStatement(DUMP_INSERT);
                 PreparedStatement infoInsert = con.prepareStatement(INFO_INSERT);
+                PreparedStatement dnsInsert = con.prepareStatement(DNS_INSERT);
 
                 Timestamp time = new Timestamp(json.get("start").getAsLong());
 
@@ -46,15 +54,26 @@ public class PacketRedisHandler implements RedisHandler {
 
                 dumpInsert.execute();
 
+                Multimap<String, String> dns = HashMultimap.create();
+                for (JsonElement dnsEl : json.get("dns").getAsJsonArray()) {
+                    JsonObject data = dnsEl.getAsJsonObject();
+                    String domain = data.get("domain").getAsString();
+                    for (JsonElement ip : data.get("ips").getAsJsonArray()) {
+                        dns.put(domain, ip.getAsString());
+                    }
+                }
+
                 for (JsonElement outbound : json.get("outbound").getAsJsonArray()) {
-                    addInfoBatch(infoInsert, outbound.getAsJsonObject(), false, time);
+                    addInfoBatch(infoInsert, outbound.getAsJsonObject(), false, time, dns);
                 }
 
                 for (JsonElement inbound : json.get("inbound").getAsJsonArray()) {
-                    addInfoBatch(infoInsert, inbound.getAsJsonObject(), true, time);
+                    addInfoBatch(infoInsert, inbound.getAsJsonObject(), true, time, dns);
                 }
 
                 infoInsert.executeLargeBatch();
+                addDNS(dnsInsert, dns, time);
+                dnsInsert.executeLargeBatch();
             }
             /*
             try (PrintWriter writer = new PrintWriter(out)) {
@@ -70,18 +89,46 @@ public class PacketRedisHandler implements RedisHandler {
         }
     }
 
-    private void addInfoBatch(PreparedStatement infoStatement, JsonObject data, boolean in, Timestamp time) throws Exception {
+    private void addDNS(PreparedStatement statement, Multimap<String, String> data, Timestamp time) throws Exception {
+        for (Entry<String, Collection<String>> entry : HashMultimap.create(data).asMap().entrySet()) {
+            data.get(entry.getKey()).removeIf(ip -> data.values().stream().filter(s -> s.equals(ip)).count() > 1);
+        }
+        for (Entry<String, Collection<String>> entry : data.asMap().entrySet()) {
+            for (String ip : new HashSet<>(entry.getValue())) {
+                statement.setString(1, entry.getKey());
+                statement.setString(2, ip);
+                statement.setTimestamp(3, time);
+                statement.addBatch();
+            }
+        }
+    }
+
+    private void addInfoBatch(PreparedStatement infoStatement, JsonObject data, boolean in, Timestamp time, Multimap<String, String> dns) throws Exception {
         String direction = in ? "inbound" : "outbound";
         infoStatement.setString(1, data.get("host").getAsString());
         infoStatement.setString(2, direction);
         infoStatement.setInt(3, data.get("total").getAsInt());
 
-        InetAddress addr = InetAddress.getByName(data.get("host").getAsString());
-        infoStatement.setString(4, addr.getHostName());
+        infoStatement.setString(4, getHost(data.get("host").getAsString(), dns));
 
         infoStatement.setTimestamp(5, time);
         infoStatement.setFloat(6, data.get("percent").getAsFloat());
 
         infoStatement.addBatch();
+    }
+
+    private String getHost(String address, Multimap<String, String> dnsResolutions) {
+        if (!dnsResolutions.containsValue(address)) {
+            Main.logger.severe("Failed to get DNS resolution for " + address);
+            return address;
+        }
+        else {
+            for (Entry<String, String> entry : dnsResolutions.entries()) {
+                if (entry.getValue().equals(address)) {
+                    return entry.getKey();
+                }
+            }
+        }
+        throw new IllegalStateException("Failed to find key in map!");
     }
 }

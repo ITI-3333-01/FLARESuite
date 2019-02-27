@@ -1,11 +1,15 @@
 package edu.trevecca.flare.collector;
 
+import com.google.common.collect.HashMultimap;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Multimap;
 import edu.trevecca.flare.core.logging.Logging;
 import edu.trevecca.flare.core.redis.Redis;
 import java.io.EOFException;
 import java.net.Inet4Address;
 import java.time.Instant;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.TimeoutException;
@@ -19,8 +23,13 @@ import org.pcap4j.core.PcapNetworkInterface;
 import org.pcap4j.core.PcapNetworkInterface.PromiscuousMode;
 import org.pcap4j.core.PcapStat;
 import org.pcap4j.core.Pcaps;
+import org.pcap4j.packet.DnsPacket;
+import org.pcap4j.packet.DnsQuestion;
+import org.pcap4j.packet.DnsRDataA;
+import org.pcap4j.packet.DnsResourceRecord;
 import org.pcap4j.packet.IpV4Packet;
 import org.pcap4j.packet.Packet;
+import org.pcap4j.packet.namednumber.DnsResourceRecordType;
 import org.pcap4j.util.NifSelector;
 import picocli.CommandLine;
 import picocli.CommandLine.Option;
@@ -43,6 +52,7 @@ public class Main implements Callable<Void> {
      * Traffic which is heading in to the network.
      */
     private final Map<Inet4Address, AtomicInteger> inboundTraffic = new HashMap();
+    private final Multimap<String, Inet4Address> dnsResolutions = HashMultimap.create();
     /**
      * Time when the current stats window started.
      */
@@ -79,7 +89,7 @@ public class Main implements Callable<Void> {
     @Option(
         names = {"-f", "--filter"},
         description = {"The PCAP filter to use."},
-        defaultValue = "tcp port 443 and ip proto \\tcp"
+        defaultValue = "(tcp port 443 and ip proto \\tcp) or (port 53)"
     )
     private String filter;
     /**
@@ -172,11 +182,14 @@ public class Main implements Callable<Void> {
                 // Spawn a thread so stats dump doesn't slow down the main loop.
                 (new Thread(
                     () -> StatsUtils.dumpStats(finalStart, new HashMap(this.outboundTraffic), new HashMap(this.inboundTraffic),
+                                               HashMultimap.create(dnsResolutions),
                                                this.statsWindow, this.badNets.get()
                                               ))).run();
                 // Clear local cache
                 badNets.set(0);
                 this.outboundTraffic.clear();
+                this.inboundTraffic.clear();
+                this.dnsResolutions.clear();
                 this.start = Instant.now();
             }
 
@@ -203,12 +216,16 @@ public class Main implements Callable<Void> {
 
                     // Scream loudly when we get a packet not meant for us
                     if (!DISCARD_CHECK.test(inAddr) && !DISCARD_CHECK.test(outAddr)) {
-                        logger.severe(
+                        logger.warning(
                             "UH OH! Looks like we got a packet not matching to/from 172.16: src " + in.getHostAddress() + "  dest"
                             + out.getHostAddress());
                         badNets.incrementAndGet();
                     }
 
+                }
+                if (packet.contains(DnsPacket.class)) {
+                    DnsPacket dns = packet.get(DnsPacket.class);
+                    saveDns(dns);
                 }
             }
             catch (TimeoutException ex) {
@@ -220,6 +237,37 @@ public class Main implements Callable<Void> {
         }
 
         return null;
+    }
+
+    private void saveDns(DnsPacket packet) {
+        if (!packet.getHeader().isResponse()) {
+            return;
+        }
+
+        if (packet.getHeader().getQuestions().isEmpty() || packet.getHeader().getAnswers().isEmpty()) {
+            return;
+        }
+
+        String domain = null;
+        List<Inet4Address> addresses = Lists.newArrayList();
+        for (DnsQuestion question : packet.getHeader().getQuestions()) {
+            if (question.getQType() == DnsResourceRecordType.A) {
+                domain = question.getQName().getName();
+            }
+        }
+        for (DnsResourceRecord answer : packet.getHeader().getAnswers()) {
+            if (answer.getDataType() == DnsResourceRecordType.A) {
+                addresses.add(((DnsRDataA) answer.getRData()).getAddress());
+            }
+        }
+
+        if (domain == null || addresses.isEmpty()) {
+            return;
+        }
+
+        logger.info("Resolved " + domain + " to " + addresses);
+
+        dnsResolutions.putAll(domain, addresses);
     }
 
     /**
@@ -243,7 +291,9 @@ public class Main implements Callable<Void> {
             shutdown.info("Packets received: " + stats.getNumPacketsReceived());
             shutdown.info("Packets dropped: " + stats.getNumPacketsDropped());
             shutdown.info("Packets dropped by interface: " + stats.getNumPacketsDroppedByIf());
-            StatsUtils.dumpStats(this.start, this.outboundTraffic, this.inboundTraffic, this.statsWindow, this.badNets.get());
+            StatsUtils.dumpStats(this.start, this.outboundTraffic, this.inboundTraffic, this.dnsResolutions, this.statsWindow,
+                                 this.badNets.get()
+                                );
 
             // Close the handle
             this.handle.close();
