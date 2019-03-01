@@ -9,7 +9,6 @@ import java.time.Instant;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
@@ -28,6 +27,7 @@ public class PackerDumpRedisMessage implements RedisMessage {
      * @param start           when the packet dump started
      * @param outboundTraffic traffic going out of the network
      * @param inboundTraffic  traffic coming in to the network
+     * @param dnsResolutions  map of domain -> resolved IPs during the time period
      * @param statsWindow     time between dumps
      * @param badNets         number of packets received from net-masks outside of the capture range
      */
@@ -51,13 +51,16 @@ public class PackerDumpRedisMessage implements RedisMessage {
     @Override public JsonObject write() {
         JsonObject object = new JsonObject();
 
+        // Generic Info
         object.addProperty("start", this.start.toEpochMilli());
         object.addProperty("window", this.statsWindow);
         object.addProperty("bad-nets", this.badNets);
 
+        // Traffic
         object.add("outbound", writeData(this.outboundTraffic));
         object.add("inbound", writeData(this.inboundTraffic));
 
+        // DNS
         object.add("dns", writeDNS());
 
         return object;

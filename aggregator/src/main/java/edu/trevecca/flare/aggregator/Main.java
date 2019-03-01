@@ -3,9 +3,6 @@ package edu.trevecca.flare.aggregator;
 import static edu.trevecca.flare.core.logging.Logging.getLogger;
 
 import edu.trevecca.flare.core.redis.Redis;
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.PrintWriter;
 import java.util.concurrent.Callable;
 import java.util.logging.Logger;
 import picocli.CommandLine;
@@ -20,7 +17,7 @@ public class Main implements Callable<Void> {
     /**
      * Set to false by a shutdown handler which ends the main program loop.
      */
-    private boolean doLoop = true;
+    private volatile boolean doLoop = true;
     /**
      * Redis host
      */
@@ -35,15 +32,6 @@ public class Main implements Callable<Void> {
      * Redis
      */
     public static Redis redis;
-    /**
-     * Output file path
-     */
-    @Option(names = {
-        "-o",
-        "--out"
-    }, description = "File to print data to.")
-    private String outPath;
-    private File outFile;
 
     public static void main(String[] args) throws Exception {
         // Parse args (see above)
@@ -56,37 +44,15 @@ public class Main implements Callable<Void> {
         // Run this when the process is terminated.
         Runtime.getRuntime().addShutdownHook(new Thread(this::finish));
 
-        makeFile();
-
         redis = Redis.builder(redisHost, redisPort).reconnect(true).build();
         redis.enable();
-        redis.register(new PacketRedisHandler(outFile));
+        redis.register(new PacketRedisHandler());
 
         while (doLoop) {
-
+            Thread.sleep(1000);
         }
 
         return null;
-    }
-
-    private void makeFile() {
-        File file = new File(outPath);
-        if (file.exists()) {
-            if (file.isDirectory()) {
-                logger.severe("Output file cannot be a directory!");
-                System.exit(1);
-            }
-            else {
-                logger.warning("Output file already exists, clearing...");
-                try {
-                    PrintWriter writer = new PrintWriter(file);
-                    writer.close();
-                }
-                catch (FileNotFoundException ignored) {
-                } // Not Possible
-            }
-        }
-        outFile = file;
     }
 
     /**

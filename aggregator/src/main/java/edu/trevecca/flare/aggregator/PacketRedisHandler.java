@@ -5,9 +5,6 @@ import com.google.common.collect.Multimap;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import edu.trevecca.flare.core.redis.RedisHandler;
-import java.io.File;
-import java.net.Inet4Address;
-import java.net.InetAddress;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -15,7 +12,6 @@ import java.sql.Timestamp;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Map.Entry;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Listens for {@link edu.trevecca.flare.core.transfer.PackerDumpRedisMessage} and handles them.
@@ -26,12 +22,6 @@ public class PacketRedisHandler implements RedisHandler {
     private final String DNS_INSERT = "INSERT into dns_dump (domain, ip_address, timestamp) VALUES (?, ?, ?)";
     private final String INFO_INSERT =
         "INSERT into dump_info (ip_address, direction, ip_count, dns, time, ratio) VALUES (?, ?, ?, ?, ?, ?)";
-    private final File out;
-    private final AtomicInteger received = new AtomicInteger();
-
-    PacketRedisHandler(File out) {
-        this.out = out;
-    }
 
     @Override public String[] channels() {
         return new String[]{"packet-data"};
@@ -39,6 +29,7 @@ public class PacketRedisHandler implements RedisHandler {
 
     @Override public void handle(JsonObject json) {
         try {
+            // TODO: Probably shouldn't hardcode this
             try (Connection con = DriverManager.getConnection("jdbc:mysql://localhost/flare?" +
                                                               "user=root&password=BLAZE")) {
                 PreparedStatement dumpInsert = con.prepareStatement(DUMP_INSERT);
@@ -47,13 +38,14 @@ public class PacketRedisHandler implements RedisHandler {
 
                 Timestamp time = new Timestamp(json.get("start").getAsLong());
 
+                // Log window information
                 int size = json.get("outbound").getAsJsonArray().size() + json.get("inbound").getAsJsonArray().size();
                 dumpInsert.setTimestamp(1, time);
                 dumpInsert.setInt(2, json.get("bad-nets").getAsInt());
                 dumpInsert.setInt(3, size);
-
                 dumpInsert.execute();
 
+                // Resolve DNS early so it can be used below
                 Multimap<String, String> dns = HashMultimap.create();
                 for (JsonElement dnsEl : json.get("dns").getAsJsonArray()) {
                     JsonObject data = dnsEl.getAsJsonObject();
@@ -63,15 +55,18 @@ public class PacketRedisHandler implements RedisHandler {
                     }
                 }
 
+                // Save traffic
                 for (JsonElement outbound : json.get("outbound").getAsJsonArray()) {
                     addInfoBatch(infoInsert, outbound.getAsJsonObject(), false, time, dns);
                 }
-
                 for (JsonElement inbound : json.get("inbound").getAsJsonArray()) {
                     addInfoBatch(infoInsert, inbound.getAsJsonObject(), true, time, dns);
                 }
 
+                // Record traffic
                 infoInsert.executeLargeBatch();
+
+                // Record DNS
                 addDNS(dnsInsert, dns, time);
                 dnsInsert.executeLargeBatch();
             }
@@ -103,7 +98,8 @@ public class PacketRedisHandler implements RedisHandler {
         }
     }
 
-    private void addInfoBatch(PreparedStatement infoStatement, JsonObject data, boolean in, Timestamp time, Multimap<String, String> dns) throws Exception {
+    private void addInfoBatch(PreparedStatement infoStatement, JsonObject data, boolean in, Timestamp time,
+                              Multimap<String, String> dns) throws Exception {
         String direction = in ? "inbound" : "outbound";
         infoStatement.setString(1, data.get("host").getAsString());
         infoStatement.setString(2, direction);

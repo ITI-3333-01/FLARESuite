@@ -15,6 +15,7 @@ public class StatsUtils {
      * @param start           when the packet dump started
      * @param outboundTraffic traffic going out of the network
      * @param inboundTraffic  traffic coming in to the network
+     * @param dnsResolutions  map of domain -> resolved IPs during the time period
      * @param statsWindow     time between dumps
      */
     public static void dumpStats(Instant start, Map<Inet4Address, AtomicInteger> outboundTraffic,

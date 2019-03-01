@@ -223,6 +223,7 @@ public class Main implements Callable<Void> {
                     }
 
                 }
+                // DNS stuff
                 if (packet.contains(DnsPacket.class)) {
                     DnsPacket dns = packet.get(DnsPacket.class);
                     saveDns(dns);
@@ -240,32 +241,37 @@ public class Main implements Callable<Void> {
     }
 
     private void saveDns(DnsPacket packet) {
+        // Only care about DNS replies
         if (!packet.getHeader().isResponse()) {
             return;
         }
 
+        // Ignore 1-way data
         if (packet.getHeader().getQuestions().isEmpty() || packet.getHeader().getAnswers().isEmpty()) {
             return;
         }
 
         String domain = null;
         List<Inet4Address> addresses = Lists.newArrayList();
+        // Record the requested domain
         for (DnsQuestion question : packet.getHeader().getQuestions()) {
             if (question.getQType() == DnsResourceRecordType.A) {
                 domain = question.getQName().getName();
             }
         }
+        // Record resolutions
         for (DnsResourceRecord answer : packet.getHeader().getAnswers()) {
             if (answer.getDataType() == DnsResourceRecordType.A) {
                 addresses.add(((DnsRDataA) answer.getRData()).getAddress());
             }
         }
 
+        // Give up if one data portion is not present
         if (domain == null || addresses.isEmpty()) {
             return;
         }
 
-        logger.info("Resolved " + domain + " to " + addresses);
+        // logger.info("Resolved " + domain + " to " + addresses);
 
         dnsResolutions.putAll(domain, addresses);
     }
