@@ -20,7 +20,7 @@ import java.util.Map.Entry;
 public class PacketRedisHandler implements RedisHandler {
 
     private final String DUMP_INSERT = "INSERT into dumps (time, error, total) VALUES (?, ?, ?)";
-    private final String DNS_INSERT = "INSERT into dns_dump (domain, ip_address, timestamp) VALUES (?, ?, ?, ?)";
+    private final String DNS_INSERT = "INSERT into dns_dump (domain, ip_address, timestamp) VALUES (?, ?, ?)";
     private final String INFO_INSERT =
         "INSERT into dump_info (ip_address, direction, ip_count, dns, time, ratio, dns_root) VALUES (?, ?, ?, ?, ?, ?, ?)";
 
@@ -111,7 +111,11 @@ public class PacketRedisHandler implements RedisHandler {
 
         infoStatement.setTimestamp(5, time);
         infoStatement.setFloat(6, data.get("percent").getAsFloat());
-        infoStatement.setString(7, InternetDomainName.from(host).topPrivateDomain().toString());
+        try {
+            infoStatement.setString(7, InternetDomainName.from(host).topPrivateDomain().toString());
+        } catch (Exception ignored) {
+            infoStatement.setString(7, host);
+        }
 
         infoStatement.addBatch();
     }
