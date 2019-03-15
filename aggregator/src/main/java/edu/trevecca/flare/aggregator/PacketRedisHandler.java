@@ -2,6 +2,7 @@ package edu.trevecca.flare.aggregator;
 
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
+import com.google.common.net.InternetDomainName;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import edu.trevecca.flare.core.redis.RedisHandler;
@@ -19,9 +20,9 @@ import java.util.Map.Entry;
 public class PacketRedisHandler implements RedisHandler {
 
     private final String DUMP_INSERT = "INSERT into dumps (time, error, total) VALUES (?, ?, ?)";
-    private final String DNS_INSERT = "INSERT into dns_dump (domain, ip_address, timestamp) VALUES (?, ?, ?)";
+    private final String DNS_INSERT = "INSERT into dns_dump (domain, ip_address, timestamp) VALUES (?, ?, ?, ?)";
     private final String INFO_INSERT =
-        "INSERT into dump_info (ip_address, direction, ip_count, dns, time, ratio) VALUES (?, ?, ?, ?, ?, ?)";
+        "INSERT into dump_info (ip_address, direction, ip_count, dns, time, ratio, dns_root) VALUES (?, ?, ?, ?, ?, ?, ?)";
 
     @Override public String[] channels() {
         return new String[]{"packet-data"};
@@ -105,10 +106,12 @@ public class PacketRedisHandler implements RedisHandler {
         infoStatement.setString(2, direction);
         infoStatement.setInt(3, data.get("total").getAsInt());
 
-        infoStatement.setString(4, getHost(data.get("host").getAsString(), dns));
+        String host = getHost(data.get("host").getAsString(), dns);
+        infoStatement.setString(4, host);
 
         infoStatement.setTimestamp(5, time);
         infoStatement.setFloat(6, data.get("percent").getAsFloat());
+        infoStatement.setString(7, InternetDomainName.from(host).topPrivateDomain().toString());
 
         infoStatement.addBatch();
     }
