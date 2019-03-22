@@ -9,6 +9,8 @@ import edu.trevecca.flare.core.redis.RedisHandler;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.util.Collection;
 import java.util.HashSet;
@@ -19,6 +21,7 @@ import java.util.Map.Entry;
  */
 public class PacketRedisHandler implements RedisHandler {
 
+    private final String DNS_LOOKUP = "SELECT domain from dns_dump where ip_address = (?) ORDER BY timestamp DESC LIMIT 1";
     private final String DUMP_INSERT = "INSERT into dumps (time, error, total) VALUES (?, ?, ?)";
     private final String DNS_INSERT = "INSERT into dns_dump (domain, ip_address, timestamp) VALUES (?, ?, ?)";
     private final String INFO_INSERT =
@@ -56,12 +59,14 @@ public class PacketRedisHandler implements RedisHandler {
                     }
                 }
 
+                PreparedStatement dnsSearch = con.prepareStatement(DNS_LOOKUP);
+
                 // Save traffic
                 for (JsonElement outbound : json.get("outbound").getAsJsonArray()) {
-                    addInfoBatch(infoInsert, outbound.getAsJsonObject(), false, time, dns);
+                    addInfoBatch(infoInsert, outbound.getAsJsonObject(), false, time, dns, dnsSearch);
                 }
                 for (JsonElement inbound : json.get("inbound").getAsJsonArray()) {
-                    addInfoBatch(infoInsert, inbound.getAsJsonObject(), true, time, dns);
+                    addInfoBatch(infoInsert, inbound.getAsJsonObject(), true, time, dns, dnsSearch);
                 }
 
                 // Record traffic
@@ -100,13 +105,13 @@ public class PacketRedisHandler implements RedisHandler {
     }
 
     private void addInfoBatch(PreparedStatement infoStatement, JsonObject data, boolean in, Timestamp time,
-                              Multimap<String, String> dns) throws Exception {
+                              Multimap<String, String> dns, PreparedStatement dnsSearch) throws Exception {
         String direction = in ? "inbound" : "outbound";
         infoStatement.setString(1, data.get("host").getAsString());
         infoStatement.setString(2, direction);
         infoStatement.setInt(3, data.get("total").getAsInt());
 
-        String host = getHost(data.get("host").getAsString(), dns);
+        String host = getHost(data.get("host").getAsString(), dns, dnsSearch);
         infoStatement.setString(4, host);
 
         infoStatement.setTimestamp(5, time);
@@ -120,8 +125,18 @@ public class PacketRedisHandler implements RedisHandler {
         infoStatement.addBatch();
     }
 
-    private String getHost(String address, Multimap<String, String> dnsResolutions) {
+    private String getHost(String address, Multimap<String, String> dnsResolutions, PreparedStatement dnsSearch) {
         if (!dnsResolutions.containsValue(address)) {
+            try {
+                dnsSearch.setString(1, address);
+                ResultSet res = dnsSearch.executeQuery();
+                if (res.next()) {
+                    return res.getString(1);
+                }
+            }
+            catch (SQLException e) {
+                e.printStackTrace();
+            }
             Main.logger.severe("Failed to get DNS resolution for " + address);
             return address;
         }
