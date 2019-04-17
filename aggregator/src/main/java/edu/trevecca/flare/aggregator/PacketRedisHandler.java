@@ -70,11 +70,11 @@ public class PacketRedisHandler implements RedisHandler {
                 }
 
                 // Record traffic
-                infoInsert.executeLargeBatch();
+                infoInsert.executeBatch();
 
                 // Record DNS
                 addDNS(dnsInsert, dns, time);
-                dnsInsert.executeLargeBatch();
+                // dnsInsert.executeBatch();
             }
             /*
             try (PrintWriter writer = new PrintWriter(out)) {
