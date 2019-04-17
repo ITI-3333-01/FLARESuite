@@ -75,7 +75,7 @@ public class PacketRedisHandler implements RedisHandler {
 
                 // Record DNS
                 addDNS(dnsInsert, dns, time);
-                // dnsInsert.executeBatch();
+                dnsInsert.executeBatch();
                 con.commit();
             }
             /*
