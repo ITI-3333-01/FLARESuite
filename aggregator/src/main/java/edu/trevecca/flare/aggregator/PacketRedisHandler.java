@@ -36,6 +36,7 @@ public class PacketRedisHandler implements RedisHandler {
             // TODO: Probably shouldn't hardcode this
             try (Connection con = DriverManager.getConnection("jdbc:mysql://localhost/flare?" +
                                                               "user=root&password=BLAZE")) {
+                con.setAutoCommit(false);
                 PreparedStatement dumpInsert = con.prepareStatement(DUMP_INSERT);
                 PreparedStatement infoInsert = con.prepareStatement(INFO_INSERT);
                 PreparedStatement dnsInsert = con.prepareStatement(DNS_INSERT);
@@ -75,6 +76,7 @@ public class PacketRedisHandler implements RedisHandler {
                 // Record DNS
                 addDNS(dnsInsert, dns, time);
                 // dnsInsert.executeBatch();
+                con.commit();
             }
             /*
             try (PrintWriter writer = new PrintWriter(out)) {
