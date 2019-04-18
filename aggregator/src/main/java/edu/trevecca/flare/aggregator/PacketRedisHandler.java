@@ -13,6 +13,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
@@ -26,6 +27,8 @@ public class PacketRedisHandler implements RedisHandler {
     private final String DNS_LOOKUP = "SELECT domain from dns_dump where ip_address = (?) ORDER BY timestamp DESC LIMIT 1";
     private final String DUMP_INSERT = "INSERT into dumps (time, error, total) VALUES (?, ?, ?)";
     private final String DNS_INSERT = "INSERT into dns_dump (domain, ip_address, timestamp) VALUES (?, ?, ?)";
+    private final String DNS_UPDATE = "UPDATE dns_dump SET timestamp = (?) WHERE ip_address = (?) ORDER BY timestamp DESC LIMIT 1";
+    private final String DNS_CHECK = "SELECT domain FROM dns_dump WHERE ip_address = (?) ORDER BY timestamp DESC LIMIT 1";
     private final String INFO_INSERT =
         "INSERT into dump_info (ip_address, direction, ip_count, dns, time, ratio, dns_root) VALUES (?, ?, ?, ?, ?, ?, ?)";
 
@@ -42,6 +45,7 @@ public class PacketRedisHandler implements RedisHandler {
                 PreparedStatement dumpInsert = con.prepareStatement(DUMP_INSERT);
                 PreparedStatement infoInsert = con.prepareStatement(INFO_INSERT);
                 PreparedStatement dnsInsert = con.prepareStatement(DNS_INSERT);
+                PreparedStatement dnsUpdate = con.prepareStatement(DNS_UPDATE);
 
                 Timestamp time = new Timestamp(json.get("start").getAsLong());
 
@@ -63,6 +67,7 @@ public class PacketRedisHandler implements RedisHandler {
                 }
 
                 PreparedStatement dnsSearch = con.prepareStatement(DNS_LOOKUP);
+                PreparedStatement dnsCheck = con.prepareStatement(DNS_CHECK);
 
                 // Save traffic
                 for (JsonElement outbound : json.get("outbound").getAsJsonArray()) {
@@ -76,8 +81,9 @@ public class PacketRedisHandler implements RedisHandler {
                 infoInsert.executeBatch();
 
                 // Record DNS
-                addDNS(dnsInsert, dns, time);
-                dnsInsert.executeBatch();
+                addDNS(dnsInsert, dnsUpdate, dns, time, dnsCheck);
+                Main.logger.info(Arrays.stream(dnsInsert.executeBatch()).sum() + " DNS entries inserted");
+                Main.logger.info(Arrays.stream(dnsUpdate.executeBatch()).sum() + " DNS entries updated");
                 con.commit();
             }
             /*
@@ -92,18 +98,28 @@ public class PacketRedisHandler implements RedisHandler {
             e.printStackTrace();
             System.exit(1);
         }
+        System.gc();
     }
 
-    private void addDNS(PreparedStatement statement, Multimap<String, String> data, Timestamp time) throws Exception {
+    private void addDNS(PreparedStatement dnsInsert, PreparedStatement dnsUpdate,
+        Multimap<String, String> data, Timestamp time, PreparedStatement dnsCheck) throws Exception {
         for (Entry<String, Collection<String>> entry : HashMultimap.create(data).asMap().entrySet()) {
             data.get(entry.getKey()).removeIf(ip -> data.values().stream().filter(s -> s.equals(ip)).count() > 1);
         }
         for (Entry<String, Collection<String>> entry : data.asMap().entrySet()) {
             for (String ip : new HashSet<>(entry.getValue())) {
-                statement.setString(1, entry.getKey());
-                statement.setString(2, ip);
-                statement.setTimestamp(3, time);
-                statement.addBatch();
+                dnsCheck.setString(1, ip);
+                ResultSet search = dnsCheck.executeQuery();
+                if (search.next() && search.getString(1).equalsIgnoreCase(entry.getKey())) {
+                    dnsUpdate.setTimestamp(1, time);
+                    dnsUpdate.setString(2, ip);
+                    dnsUpdate.addBatch();
+                    continue;
+                }
+                dnsInsert.setString(1, entry.getKey());
+                dnsInsert.setString(2, ip);
+                dnsInsert.setTimestamp(3, time);
+                dnsInsert.addBatch();
             }
         }
     }
@@ -124,7 +140,6 @@ public class PacketRedisHandler implements RedisHandler {
             InternetDomainName rootDomain = InternetDomainName.from(host);
             List<String> root = rootDomain.parts().subList(rootDomain.parts().size() - 2, rootDomain.parts().size());
             String actualRoot = root.get(0) + "." + root.get(1);
-            System.out.println("Actual Root: " + actualRoot);
             infoStatement.setString(7, actualRoot);
         } catch (Exception ignored) {
             System.out.println("Error: " + ignored.getMessage());
