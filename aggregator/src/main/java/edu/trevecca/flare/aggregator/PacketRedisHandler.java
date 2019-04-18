@@ -1,6 +1,7 @@
 package edu.trevecca.flare.aggregator;
 
 import com.google.common.collect.HashMultimap;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
 import com.google.common.net.InternetDomainName;
 import com.google.gson.JsonElement;
@@ -14,6 +15,7 @@ import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map.Entry;
 
 /**
@@ -119,8 +121,13 @@ public class PacketRedisHandler implements RedisHandler {
         infoStatement.setTimestamp(5, time);
         infoStatement.setFloat(6, data.get("percent").getAsFloat());
         try {
-            infoStatement.setString(7, InternetDomainName.from(host).topPrivateDomain().toString());
+            InternetDomainName rootDomain = InternetDomainName.from(host);
+            List<String> root = rootDomain.parts().subList(rootDomain.parts().size() - 2, rootDomain.parts().size());
+            String actualRoot = root.get(0) + "." + root.get(1);
+            System.out.println("Actual Root: " + actualRoot);
+            infoStatement.setString(7, actualRoot);
         } catch (Exception ignored) {
+            System.out.println("Error: " + ignored.getMessage());
             infoStatement.setString(7, host);
         }
 
