@@ -40,7 +40,7 @@ public class PacketRedisHandler implements RedisHandler {
         try {
             // TODO: Probably shouldn't hardcode this
             try (Connection con = DriverManager.getConnection("jdbc:mysql://localhost/flare?" +
-                                                              "user=root&password=BLAZE")) {
+                                                              "user=flare&password=Flare-3333")) {
                 con.setAutoCommit(false);
                 PreparedStatement dumpInsert = con.prepareStatement(DUMP_INSERT);
                 PreparedStatement infoInsert = con.prepareStatement(INFO_INSERT);
