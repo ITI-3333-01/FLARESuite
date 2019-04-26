@@ -84,6 +84,7 @@ public class PacketRedisHandler implements RedisHandler {
                 addDNS(dnsInsert, dnsUpdate, dns, time, dnsCheck);
                 Main.logger.info(Arrays.stream(dnsInsert.executeBatch()).sum() + " DNS entries inserted");
                 Main.logger.info(Arrays.stream(dnsUpdate.executeBatch()).sum() + " DNS entries updated");
+                Main.logger.info(size + " info entries inserted");
                 con.commit();
             }
             /*
@@ -141,7 +142,6 @@ public class PacketRedisHandler implements RedisHandler {
             String actualRoot = root.get(0) + "." + root.get(1);
             infoStatement.setString(7, actualRoot);
         } catch (Exception ignored) {
-            System.out.println("Error: " + ignored.getMessage());
             infoStatement.setString(7, host);
         }
 
@@ -160,7 +160,6 @@ public class PacketRedisHandler implements RedisHandler {
             catch (SQLException e) {
                 e.printStackTrace();
             }
-            Main.logger.severe("Failed to get DNS resolution for " + address);
             return address;
         }
         else {
