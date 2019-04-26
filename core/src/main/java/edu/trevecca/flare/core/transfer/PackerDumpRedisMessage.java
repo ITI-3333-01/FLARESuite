@@ -73,7 +73,7 @@ public class PackerDumpRedisMessage implements RedisMessage {
             JsonObject resolution = new JsonObject();
             resolution.addProperty("domain", domain);
             JsonArray ips = new JsonArray();
-            new HashSet<>(dnsResolutions.get(domain)).forEach(i -> ips.add(i.toString()));
+            new HashSet<>(dnsResolutions.get(domain)).forEach(i -> ips.add(i.getHostAddress()));
             resolution.add("ips", ips);
             dns.add(resolution);
         }
@@ -96,7 +96,7 @@ public class PackerDumpRedisMessage implements RedisMessage {
         double total = traffic.values().stream().mapToInt(AtomicInteger::get).sum();
         traffic.forEach((k, v) -> {
             JsonObject packet = new JsonObject();
-            packet.addProperty("host", k.toString());
+            packet.addProperty("host", k.getHostAddress());
             packet.addProperty("total", v.get());
             packet.addProperty("percent", v.get() / total);
             packetData.add(packet);
