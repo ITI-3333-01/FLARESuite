@@ -98,7 +98,7 @@ public class PackerDumpRedisMessage implements RedisMessage {
             JsonObject packet = new JsonObject();
             packet.addProperty("host", k.getHostAddress());
             packet.addProperty("total", v.get());
-            packet.addProperty("percent", v.get() / total);
+            packet.addProperty("percent", (double) v.get() / total);
             packetData.add(packet);
         });
 
