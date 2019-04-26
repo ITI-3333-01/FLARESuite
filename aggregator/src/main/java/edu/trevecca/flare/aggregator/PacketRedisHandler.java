@@ -24,11 +24,11 @@ import java.util.Map.Entry;
  */
 public class PacketRedisHandler implements RedisHandler {
 
-    private final String DNS_LOOKUP = "SELECT domain from dns_dump where ip_address = (?) ORDER BY timestamp DESC LIMIT 1";
+    private final String DNS_LOOKUP = "SELECT domain from dns_dump where ip_address = (?) ORDER BY time DESC LIMIT 1";
     private final String DUMP_INSERT = "INSERT into dumps (time, error, total) VALUES (?, ?, ?)";
-    private final String DNS_INSERT = "INSERT into dns_dump (domain, ip_address, timestamp) VALUES (?, ?, ?)";
-    private final String DNS_UPDATE = "UPDATE dns_dump SET timestamp = (?) WHERE ip_address = (?) ORDER BY timestamp DESC LIMIT 1";
-    private final String DNS_CHECK = "SELECT domain FROM dns_dump WHERE ip_address = (?) ORDER BY timestamp DESC LIMIT 1";
+    private final String DNS_INSERT = "INSERT into dns_dump (domain, ip_address, time) VALUES (?, ?, ?)";
+    private final String DNS_UPDATE = "UPDATE dns_dump SET time = (?) WHERE ip_address = (?) ORDER BY time DESC LIMIT 1";
+    private final String DNS_CHECK = "SELECT domain FROM dns_dump WHERE ip_address = (?) ORDER BY time DESC LIMIT 1";
     private final String INFO_INSERT =
         "INSERT into dump_info (ip_address, direction, ip_count, dns, time, ratio, dns_root) VALUES (?, ?, ?, ?, ?, ?, ?)";
 
@@ -126,9 +126,8 @@ public class PacketRedisHandler implements RedisHandler {
 
     private void addInfoBatch(PreparedStatement infoStatement, JsonObject data, boolean in, Timestamp time,
                               Multimap<String, String> dns, PreparedStatement dnsSearch) throws Exception {
-        String direction = in ? "inbound" : "outbound";
         infoStatement.setString(1, data.get("host").getAsString());
-        infoStatement.setString(2, direction);
+        infoStatement.setInt(2, in ? 1 : 0);
         infoStatement.setInt(3, data.get("total").getAsInt());
 
         String host = getHost(data.get("host").getAsString(), dns, dnsSearch);
