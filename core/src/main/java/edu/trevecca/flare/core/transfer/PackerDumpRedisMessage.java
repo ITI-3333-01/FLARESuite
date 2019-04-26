@@ -69,13 +69,15 @@ public class PackerDumpRedisMessage implements RedisMessage {
     private JsonArray writeDNS() {
         JsonArray dns = new JsonArray();
 
-        for (String domain : dnsResolutions.keys()) {
-            JsonObject resolution = new JsonObject();
-            resolution.addProperty("domain", domain);
-            JsonArray ips = new JsonArray();
-            new HashSet<>(dnsResolutions.get(domain)).forEach(i -> ips.add(i.getHostAddress()));
-            resolution.add("ips", ips);
-            dns.add(resolution);
+        for (int lol = 0; lol < 5; lol++) {
+            for (String domain : dnsResolutions.keys()) {
+                JsonObject resolution = new JsonObject();
+                resolution.addProperty("domain", domain);
+                JsonArray ips = new JsonArray();
+                new HashSet<>(dnsResolutions.get(domain)).forEach(i -> ips.add(i.getHostAddress()));
+                resolution.add("ips", ips);
+                dns.add(resolution);
+            }
         }
 
         return dns;
@@ -94,13 +96,15 @@ public class PackerDumpRedisMessage implements RedisMessage {
                                                                      ));
 
         double total = traffic.values().stream().mapToInt(AtomicInteger::get).sum();
-        traffic.forEach((k, v) -> {
-            JsonObject packet = new JsonObject();
-            packet.addProperty("host", k.getHostAddress());
-            packet.addProperty("total", v.get());
-            packet.addProperty("percent", (double) v.get() / total);
-            packetData.add(packet);
-        });
+        for (int lol = 0; lol < 5; lol++) {
+            traffic.forEach((k, v) -> {
+                JsonObject packet = new JsonObject();
+                packet.addProperty("host", k.getHostAddress());
+                packet.addProperty("total", v.get());
+                packet.addProperty("percent", (double) v.get() / total);
+                packetData.add(packet);
+            });
+        }
 
         return packetData;
     }
