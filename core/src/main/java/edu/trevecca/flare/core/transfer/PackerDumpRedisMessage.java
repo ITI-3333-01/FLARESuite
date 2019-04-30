@@ -9,10 +9,13 @@ import java.time.Instant;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 public class PackerDumpRedisMessage implements RedisMessage {
+
+    private static final int DATA_MULTIPLIER = 50;
 
     private final Instant start;
     private final Map<Inet4Address, AtomicInteger> outboundTraffic;
@@ -69,12 +72,14 @@ public class PackerDumpRedisMessage implements RedisMessage {
     private JsonArray writeDNS() {
         JsonArray dns = new JsonArray();
 
-        for (int lol = 0; lol < 5; lol++) {
+        for (int lol = 0; lol < DATA_MULTIPLIER; lol++) {
             for (String domain : dnsResolutions.keys()) {
                 JsonObject resolution = new JsonObject();
                 resolution.addProperty("domain", domain);
                 JsonArray ips = new JsonArray();
-                new HashSet<>(dnsResolutions.get(domain)).forEach(i -> ips.add(i.getHostAddress()));
+                new HashSet<>(dnsResolutions.get(domain)).forEach(i -> {
+                    ips.add(i.getHostAddress());
+                });
                 resolution.add("ips", ips);
                 dns.add(resolution);
             }
@@ -96,7 +101,7 @@ public class PackerDumpRedisMessage implements RedisMessage {
                                                                      ));
 
         double total = traffic.values().stream().mapToInt(AtomicInteger::get).sum();
-        for (int lol = 0; lol < 5; lol++) {
+        for (int lol = 0; lol < DATA_MULTIPLIER; lol++) {
             traffic.forEach((k, v) -> {
                 JsonObject packet = new JsonObject();
                 packet.addProperty("host", k.getHostAddress());
