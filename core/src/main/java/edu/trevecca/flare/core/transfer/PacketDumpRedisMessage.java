@@ -6,16 +6,15 @@ import com.google.gson.JsonObject;
 import edu.trevecca.flare.core.redis.RedisMessage;
 import java.net.Inet4Address;
 import java.time.Instant;
-import java.util.HashSet;
-import java.util.LinkedHashMap;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 public class PacketDumpRedisMessage implements RedisMessage {
 
-    private static final int DATA_MULTIPLIER = 50;
+    private static final Random RANDOM = new Random();
+    private static final int MULTIPLIER_MIN = 1;
+    private static final int MULTIPLIER_MAX = 100;
 
     private final Instant start;
     private final Map<Inet4Address, AtomicInteger> outboundTraffic;
@@ -69,10 +68,15 @@ public class PacketDumpRedisMessage implements RedisMessage {
         return object;
     }
 
+    private int randomMultiplier() {
+        return Math.max(0, RANDOM.nextInt(MULTIPLIER_MAX - MULTIPLIER_MIN) + MULTIPLIER_MIN);
+    }
+
     private JsonArray writeDNS() {
         JsonArray dns = new JsonArray();
 
-        for (int lol = 0; lol < DATA_MULTIPLIER; lol++) {
+        int multiplier = randomMultiplier();
+        for (int lol = 0; lol < multiplier; lol++) {
             for (String domain : dnsResolutions.keys()) {
                 JsonObject resolution = new JsonObject();
                 resolution.addProperty("domain", domain);
@@ -101,7 +105,8 @@ public class PacketDumpRedisMessage implements RedisMessage {
                                                                      ));
 
         double total = traffic.values().stream().mapToInt(AtomicInteger::get).sum();
-        for (int lol = 0; lol < DATA_MULTIPLIER; lol++) {
+        int multiplier = randomMultiplier();
+        for (int lol = 0; lol < multiplier; lol++) {
             traffic.forEach((k, v) -> {
                 JsonObject packet = new JsonObject();
                 packet.addProperty("host", k.getHostAddress());
