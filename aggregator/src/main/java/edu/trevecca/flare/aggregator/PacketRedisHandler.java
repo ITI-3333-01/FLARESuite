@@ -1,12 +1,13 @@
 package edu.trevecca.flare.aggregator;
 
 import com.google.common.collect.HashMultimap;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
 import com.google.common.net.InternetDomainName;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import edu.trevecca.flare.core.redis.RedisHandler;
+import edu.trevecca.flare.core.transfer.PacketDumpRedisMessage;
+
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -20,7 +21,7 @@ import java.util.List;
 import java.util.Map.Entry;
 
 /**
- * Listens for {@link edu.trevecca.flare.core.transfer.PackerDumpRedisMessage} and handles them.
+ * Listens for {@link PacketDumpRedisMessage} and handles them.
  */
 public class PacketRedisHandler implements RedisHandler {
 

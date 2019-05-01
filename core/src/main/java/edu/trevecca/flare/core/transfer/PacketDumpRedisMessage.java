@@ -13,7 +13,7 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
-public class PackerDumpRedisMessage implements RedisMessage {
+public class PacketDumpRedisMessage implements RedisMessage {
 
     private static final int DATA_MULTIPLIER = 50;
 
@@ -34,7 +34,7 @@ public class PackerDumpRedisMessage implements RedisMessage {
      * @param statsWindow     time between dumps
      * @param badNets         number of packets received from net-masks outside of the capture range
      */
-    public PackerDumpRedisMessage(Instant start,
+    public PacketDumpRedisMessage(Instant start,
                                   Map<Inet4Address, AtomicInteger> outboundTraffic,
                                   Map<Inet4Address, AtomicInteger> inboundTraffic,
                                   Multimap<String, Inet4Address> dnsResolutions,
